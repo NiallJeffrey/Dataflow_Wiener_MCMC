@@ -1,0 +1,5 @@
+#
+# This file is managed by MaxIDE. Do NOT change.
+#
+HEADERS:= /panfs/panfs.maxeler/home/HCEEC001/nnm06/nxj57-nnm06/wiener_workspace/maxpower/src/maxpower/kernel/random/runtime/random_mt.h
+SOURCES:= samplerCpuCode.c /panfs/panfs.maxeler/home/HCEEC001/nnm06/nxj57-nnm06/wiener_workspace/maxpower/src/maxpower/kernel/random/runtime/random_mt.c
