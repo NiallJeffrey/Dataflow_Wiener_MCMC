@@ -1,0 +1,30 @@
+package sampler;
+
+import static com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFETypeFactory.dfeFloat;
+
+import com.maxeler.maxcompiler.v2.build.EngineParameters;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEType;
+
+public class samplerEngineParameters extends EngineParameters {
+
+	public samplerEngineParameters(String[] args) {
+		super(args);
+	}
+
+	@Override
+	protected void declarations() {
+		declareParam("N",         DataType.INT,     128);
+		declareParam("map_number",DataType.INT,     5);
+		declareParam("type",      DataType.DFETYPE, dfeFloat(8,24));
+	}
+
+	public int getN()            { return getParam("N");         }
+	public int getM()            { return getParam("M");         }
+	public int getmap_number()   { return getParam("map_number");}
+
+	public int getFrequency()    { return getParam("frequency"); }
+	public DFEType getBaseType() { return getParam("type");      }
+
+
+
+}

@@ -1,0 +1,165 @@
+package sampler;
+
+
+import maxpower.fft.FourierTransform;
+import maxpower.kernel.mem.Transpose;
+import maxpower.kernel.random.GaussianRng;
+
+import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
+import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;
+import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.KernelMath;
+import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.core.CounterChain;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEType;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEComplex;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEComplexType;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVector;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVectorType;
+
+class samplerKernel extends Kernel {
+
+	private static final DFEType type = dfeFloat(8, 24);
+
+	protected samplerKernel(KernelParameters parameters, samplerEngineParameters engineParameters) {
+		super(parameters);
+
+		int map_number = engineParameters.getmap_number();
+		int X = (engineParameters.getN()*engineParameters.getN()/4);
+		int datasize = X*map_number;
+		DFEVar iterationmax = io.scalarInput("iteration_scalar", dfeInt(32)); // can't comment this out if have iteration_scalar as an input
+		// DFEVar OutputTick = datasize*(iterationmax-1);  // these are commented out if outputing all iterations
+		int CountMax = 100000; //This is the maximum number of iterations
+		// optimization.pushPipeliningFactor(1.0); // can't find documentation on this, so leavign it out for now
+
+		// DATA TYPES:
+		DFEComplexType cplx = new DFEComplexType(type);
+		DFEVectorType<DFEComplex> 	vectorType = new DFEVectorType<DFEComplex>(cplx, 4);
+		DFEVectorType<DFEVar> 	vectorType2 = new DFEVectorType<DFEVar>(type, 4);
+
+		//COUNTERS:
+		CounterChain chain = control.count.makeCounterChain();
+		DFEVar y = chain.addCounter(CountMax ,1); // y is the iteration count
+		DFEVar x = chain.addCounter(datasize, 1);
+
+		CounterChain chain2 = control.count.makeCounterChain();
+		DFEVar a = chain2.addCounter(CountMax,1);
+		DFEVar b = chain2.addCounter(X * map_number,1); // b is the mapcount
+
+		// STREAMS AND SCALARS:
+		DFEVar  inputEnable = control.count.simpleCounter(32) < datasize ; 
+		//DFEVar  inputEnable2 = control.count.simpleCounter(32) < datasize*CountMax; // these are commented out if outputing all iterations
+
+		DFEVar gridsquare_inv = io.scalarInput("gridsquare_inv", type);
+		DFEVar tau0 = io.scalarInput("tau0", type);
+		DFEVar tau1 = io.scalarInput("tau1", type);
+		DFEVar tau2 = io.scalarInput("tau2", type);
+		DFEVar tau3 = io.scalarInput("tau3", type);
+		DFEVar tau4 = io.scalarInput("tau4", type);
+
+		DFEVar Tftinv0 = io.scalarInput("Tftinv0", type);
+		DFEVar Tftinv1 = io.scalarInput("Tftinv1", type);
+		DFEVar Tftinv2 = io.scalarInput("Tftinv2", type);
+		DFEVar Tftinv3 = io.scalarInput("Tftinv3", type);
+		DFEVar Tftinv4 = io.scalarInput("Tftinv4", type);
+
+
+		//DFEVector<DFEVar> Tftinv =  io.input("Tftinv",vectorType2 , inputEnable );
+
+		DFEVector<DFEComplex> sandt = io.input("sandtDFE",vectorType , inputEnable );
+		DFEVector<DFEVar> Nbar = io.input("Nbar", vectorType2, inputEnable);
+		DFEVector<DFEVar> Sft = io.input("Sft", vectorType2, inputEnable);
+		DFEVector<DFEVar> data = io.input("data", vectorType2, inputEnable);
+
+
+		// AUTOLOOP -> SOURCELESS DECLARATIONS
+
+		DFEVector<DFEComplex> Carriedsandt = vectorType.newInstance(this);
+		DFEVector<DFEComplex> sandt1 = y === 0 ? sandt : Carriedsandt;
+		DFEVector<DFEVar> CarriedNbar = vectorType2.newInstance(this);
+		DFEVector<DFEVar> Nbar1 = y === 0 ? Nbar : CarriedNbar;
+		DFEVector<DFEVar> CarriedSft = vectorType2.newInstance(this);
+		DFEVector<DFEVar> Sft1 = y === 0 ? Sft : CarriedSft;
+		DFEVector<DFEVar> Carrieddata = vectorType2.newInstance(this);
+		DFEVector<DFEVar> data1 = y === 0 ? data : Carrieddata;
+
+		// 2 random variates in 4 pipes
+
+	        DFEVector<DFEVar> varMP1 = GaussianRng.getRand("seed1", constant.var(0), constant.var(1), new DFEVectorType<DFEVar>(type, 4));
+		DFEVector<DFEVar> varMP2 = GaussianRng.getRand("seed2", constant.var(0), constant.var(1), new DFEVectorType<DFEVar>(type, 4));
+
+
+		// First dot product:
+		// choose the correct tau value for the map...
+
+		DFEVar tau = tau0 ;
+		tau = b === 1 ? tau1 : tau ;
+		tau = b === 2 ? tau2 : tau ;
+		tau = b === 3 ? tau3 : tau ;
+		tau = b === 4 ? tau4 : tau ;
+
+		DFEVector<DFEComplex> sandt2 = vectorType.newInstance(this);
+		for (int j = 0; j < 4; j++){
+			sandt2[j] <== (tau*data1[j] + sandt1[j]*Nbar1[j])/(tau + Nbar1[j]) + KernelMath.sqrt((tau*Nbar1[j])/(tau + Nbar1[j]) ) * varMP1[j] ;
+		}
+
+
+		// 2D FFT sandt here (first time):
+
+		DFEVector<DFEComplex> A = FourierTransform.fft(engineParameters.getN(), sandt2);
+		DFEVector<DFEComplex> B = Transpose.transposeElementWise(A, engineParameters.getN(), engineParameters.getN());
+		A = FourierTransform.fft(engineParameters.getN(), B);
+		sandt = Transpose.transposeElementWise(A, engineParameters.getN(), engineParameters.getN());
+
+
+		// Second dot product , followed by
+		//complex conjugate of all sandt values and
+		// divide by normalisation factor gridwidth*gridwidth:
+
+		DFEVector<DFEComplex> sandt3 = vectorType.newInstance(this);
+		DFEVector<DFEComplex> sandt4 = vectorType.newInstance(this);
+
+
+		// choose the correct Tftinv value for the map
+
+		DFEVar Tftinv = Tftinv0 ;
+		Tftinv = b === 1 ? Tftinv1 : Tftinv ;
+		Tftinv = b === 2 ? Tftinv2 : Tftinv ;
+		Tftinv = b === 3 ? Tftinv3 : Tftinv ;
+		Tftinv = b === 4 ? Tftinv4 : Tftinv ;
+
+		for (int j = 0; j < 4; j++){
+			sandt3[j] <== ( Tftinv * sandt[j] * Sft1[j] ) / (1.0 + Tftinv * Sft1[j]) + KernelMath.sqrt(Sft1[j]/(1.0 + Sft1[j] * Tftinv)) * varMP2[j];
+			sandt4[j] <== (2.0*sandt3[j].getReal() - sandt3[j])*(gridsquare_inv); // Take the mean and normalise (s.t. IFFT -> FFT)
+		}
+
+
+		// 2D FFT sandt here (second time):
+
+		A = FourierTransform.fft(engineParameters.getN(), sandt4);
+		B = Transpose.transposeElementWise(A, engineParameters.getN(), engineParameters.getN());
+		A = FourierTransform.fft(engineParameters.getN(), B);
+		sandt1 = Transpose.transposeElementWise(A, engineParameters.getN(), engineParameters.getN());
+
+
+		// Stream offsets
+
+		DFEVector<DFEComplex> newsandtOffset=stream.offset(sandt1, -datasize);
+		Carriedsandt <== newsandtOffset;
+		DFEVector<DFEVar> newNbarOffset=stream.offset(Nbar1, -datasize);
+		CarriedNbar <== newNbarOffset;
+		DFEVector<DFEVar> newSftOffset=stream.offset(Sft1, -datasize);
+		CarriedSft <== newSftOffset;
+		DFEVector<DFEVar> newdataOffset=stream.offset(data1,  -datasize);
+		Carrieddata <== newdataOffset;
+
+		// OUTPUT all:
+		io.output("reconDFE", sandt1, vectorType);
+
+		// OUTPUT last:
+		//DFEVar  outputEnable = control.count.simpleCounter(32) >= OutputTick;
+		//io.output("reconDFE", sandt1, vectorType, outputEnable);  //change back to sandt1
+	}
+
+}
+
+
