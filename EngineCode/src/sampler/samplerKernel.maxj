@@ -9,6 +9,7 @@ import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
 import com.maxeler.maxcompiler.v2.kernelcompiler.KernelParameters;
 import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.KernelMath;
 import com.maxeler.maxcompiler.v2.kernelcompiler.stdlib.core.CounterChain;
+import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEFix.SignMode;
 import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEType;
 import com.maxeler.maxcompiler.v2.kernelcompiler.types.base.DFEVar;
 import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEComplex;
@@ -19,6 +20,7 @@ import com.maxeler.maxcompiler.v2.kernelcompiler.types.composite.DFEVectorType;
 class samplerKernel extends Kernel {
 
 	private static final DFEType type = dfeFloat(8, 24);
+	private static final DFEType fix_type = dfeFixMax(32, 1.0, SignMode.TWOSCOMPLEMENT);
 
 	protected samplerKernel(KernelParameters parameters, samplerEngineParameters engineParameters) {
 		super(parameters);
@@ -35,6 +37,10 @@ class samplerKernel extends Kernel {
 		DFEComplexType cplx = new DFEComplexType(type);
 		DFEVectorType<DFEComplex> 	vectorType = new DFEVectorType<DFEComplex>(cplx, 4);
 		DFEVectorType<DFEVar> 	vectorType2 = new DFEVectorType<DFEVar>(type, 4);
+		
+		DFEComplexType fix_cplx = new DFEComplexType(fix_type);
+		DFEVectorType<DFEComplex> fix_vectorType = new DFEVectorType<DFEComplex>(fix_cplx, 4);
+		DFEVectorType<DFEVar> 	fix_vectorTypeReal = new DFEVectorType<DFEVar>(fix_type, 4); //  better naming convention?
 
 		//COUNTERS:
 		CounterChain chain = control.count.makeCounterChain();
@@ -105,10 +111,10 @@ class samplerKernel extends Kernel {
 
 		// 2D FFT sandt here (first time):
 
-		DFEVector<DFEComplex> A = FourierTransform.fft(engineParameters.getN(), sandt2);
+		DFEVector<DFEComplex> A = FourierTransform.fft(engineParameters.getN(), sandt2.cast(fix_vectorType));
 		DFEVector<DFEComplex> B = Transpose.transposeElementWise(A, engineParameters.getN(), engineParameters.getN());
 		A = FourierTransform.fft(engineParameters.getN(), B);
-		sandt = Transpose.transposeElementWise(A, engineParameters.getN(), engineParameters.getN());
+		sandt = Transpose.transposeElementWise(A, engineParameters.getN(), engineParameters.getN()).cast(vectorType);
 
 
 		// Second dot product , followed by
@@ -135,10 +141,10 @@ class samplerKernel extends Kernel {
 
 		// 2D FFT sandt here (second time):
 
-		A = FourierTransform.fft(engineParameters.getN(), sandt4);
+		A = FourierTransform.fft(engineParameters.getN(), sandt4.cast(fix_vectorType));
 		B = Transpose.transposeElementWise(A, engineParameters.getN(), engineParameters.getN());
 		A = FourierTransform.fft(engineParameters.getN(), B);
-		sandt1 = Transpose.transposeElementWise(A, engineParameters.getN(), engineParameters.getN());
+		sandt1 = Transpose.transposeElementWise(A, engineParameters.getN(), engineParameters.getN()).cast(vectorType);
 
 
 		// Stream offsets
