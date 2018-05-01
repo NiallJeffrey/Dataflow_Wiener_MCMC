@@ -100,7 +100,6 @@ void sampler_cpu(int iterationmax, int map_number, int gridwidth, int size, floa
 	// For each iteration
 	int iteration = 0;
 	for(iteration=0 ; iteration < iterationmax ; iteration++ ) {
-		
 		fullsize = iteration*size*map_number; //total number of pixels including this iteration .i.e. final index
 		back_one_iteration = (iteration-1)*size*map_number; //total number of pixels excluding this iteration i.e. preceding index
 
@@ -124,17 +123,21 @@ void sampler_cpu(int iterationmax, int map_number, int gridwidth, int size, floa
 
 			// First dot product
 			i = 0;
+
 			for(i=0;i<(size); i++) {
 				streamindex = i + fullsizehere;
 				mapCPU[i][0] =  ( tauvalues[mapcount] * data[streamindex] 
 						+ mapCPU[i][0] * Nbar[streamindex])    
-						/   (tauvalues[mapcount] + Nbar[streamindex] ) 
+						/   (tauvalues[mapcount] + Nbar[streamindex] ) //
 						+  sqrt((tauvalues[mapcount] * Nbar[streamindex]) 
 						/ (tauvalues[mapcount]+Nbar[streamindex] ) ) * gaussian1[i]; //real part
 
 				mapCPU[i][1] = ( mapCPU[i][1] * Nbar[streamindex])  
 						/  (tauvalues[mapcount]+Nbar[streamindex] ); //imag part
+
 			}
+
+			
 
 			//FFT 1
 			fftwf_plan plan = fftwf_plan_dft_2d(gridwidth, gridwidth  ,  mapCPU, map2CPU, FFTW_FORWARD,  FFTW_ESTIMATE);
@@ -146,13 +149,20 @@ void sampler_cpu(int iterationmax, int map_number, int gridwidth, int size, floa
 				streamindex = i + fullsizehere;
 				//real part divided by normalisation:
 				map2CPU[i][0] =  gridsquare_inv * (( Tftinvvalues[mapcount] * map2CPU[i][0] * Sft[streamindex])
-							/ (1.0 + Tftinvvalues[mapcount] * Sft[streamindex] )   
+						/ (1.0 + Tftinvvalues[mapcount] * Sft[streamindex] ) //  
+				//map2CPU[i][0] =  (( Tftinvvalues[mapcount] * map2CPU[i][0] * Sft[streamindex])
+					//	/ (1.0 + Tftinvvalues[mapcount] * Sft[streamindex] ) );//  
 						+ sqrt(  Sft[streamindex] 
 							/ (1.0 + Tftinvvalues[mapcount] * Sft[streamindex] ) ) * gaussian2[i] ); 
 				//imag part conjugated (minus sign) divided by normalisation:
+				
 				map2CPU[i][1] = (-gridsquare_inv) * (Tftinvvalues[mapcount] * map2CPU[i][1] * Sft[streamindex])
 							/ (1.0+Tftinvvalues[mapcount] * Sft[streamindex] ); 
+				//map2CPU[i][1] =  (-Tftinvvalues[mapcount] * map2CPU[i][1] * Sft[streamindex])
+				//			/ (1.0+Tftinvvalues[mapcount] * Sft[streamindex] ); 
+
 			}
+
 
 
 			//FFT 2
@@ -191,19 +201,19 @@ void sampler_DFE(int iterationmax, int map_number, int size, float gridsquare_in
 
 	max_set_ticks(act, "samplerKernel", size/4*map_number*iterationmax); //size/4 as 4 pipes in DFE
 
-	max_set_double(act, "samplerKernel", "iteration_scalar", iterationmax);
+	//max_set_double(act, "samplerKernel", "iteration_scalar", iterationmax);  // these are commented out if outputing all iterations
 
 	max_set_double(act, "samplerKernel", "Tftinv0", Tftinvvalues[0]);
-	max_set_double(act, "samplerKernel","Tftinv1" , Tftinvvalues[1] );
-	max_set_double(act, "samplerKernel","Tftinv2" , Tftinvvalues[2]);
-	max_set_double(act, "samplerKernel","Tftinv3", Tftinvvalues[3]);
-	max_set_double(act, "samplerKernel","Tftinv4", Tftinvvalues[4] );
+	//max_set_double(act, "samplerKernel","Tftinv1" , Tftinvvalues[1] );
+	//max_set_double(act, "samplerKernel","Tftinv2" , Tftinvvalues[2]);
+	//max_set_double(act, "samplerKernel","Tftinv3", Tftinvvalues[3]);
+	//max_set_double(act, "samplerKernel","Tftinv4", Tftinvvalues[4] );
 	max_set_double(act, "samplerKernel","gridsquare_inv", gridsquare_inv);
 	max_set_double(act, "samplerKernel","tau0", tauvalues[0]);
-	max_set_double(act, "samplerKernel","tau1", tauvalues[1]);
-	max_set_double(act, "samplerKernel","tau2",tauvalues[2]);
-	max_set_double(act, "samplerKernel","tau3", tauvalues[3]);
-	max_set_double(act, "samplerKernel","tau4", tauvalues[4]);
+	//max_set_double(act, "samplerKernel","tau1", tauvalues[1]);
+	//max_set_double(act, "samplerKernel","tau2",tauvalues[2]);
+	//max_set_double(act, "samplerKernel","tau3", tauvalues[3]);
+	//max_set_double(act, "samplerKernel","tau4", tauvalues[4]);
 
 
 
@@ -267,19 +277,20 @@ int main(void)
 	// ---------------------------Define variables------------------------------//
 	// -------------------------------------------------------------------------//
 	const int repeat_number = 1;
-	const int iterationmin = 6;
-	const int iterationmax = 6; // at the moment this is maxed at 1^5 by the variable CountMax in the kernel
+	const int iterationmin = 3;
+	const int iterationmax = 3; // at the moment this is maxed at 1^5 by the variable CountMax in the kernel
 	const bool print_bool = true; // whether or not to save the output
 	printf("sampler_iterationmax %d \n", iterationmax);
 
 	//Define these variables in the parameters file:
 	const int map_number = sampler_map_number;
 	const int gridwidth = sampler_N;
+	const int DFE_frequency = sampler_streamFrequency;
 	const int size = gridwidth*gridwidth;
-	int mapcount, i;
+	int mapcount, i, j;
 
 	printf("Filtering %d maps (%d by %d) with %d iterations \n", map_number, gridwidth, gridwidth, iterationmax);
-
+	printf("DFE stream clock frequency =  %d\n", DFE_frequency);
 	// need this for format to stop integer overflows for large iteration numbers:
 	size_t size_complex_output, size_complex_input;
 	size_complex_input = (map_number*size*sizeof(float complex));
@@ -299,7 +310,7 @@ int main(void)
 	// check this- putting the CPU allocation first leads to a seg fault for large numbers of iterations
 	float complex *sandtCPU = malloc(size_complex_output);
 
-
+	printf("Test line \n");
 	// -------------------------------------------------------------------------//
 	// --------------------------Read in file data------------------------------//
 	// -------------------------------------------------------------------------//
@@ -318,22 +329,23 @@ int main(void)
 	FILE *infile4 ;
 	FILE *infile5 ;
 
-	infile = fopen("5maps/Sft1", "r");
-	infile2 = fopen("5maps/Sft2", "r");
-	infile3 = fopen("5maps/Sft3", "r");
-	infile4 = fopen("5maps/Sft4", "r");
-	infile5 = fopen("5maps/Sft5", "r");
+	//infile = fopen("maps256/paper_Sft_diagonal_128.txt", "r");
+	infile = fopen("maps256/Sft1", "r");
+	infile2 = fopen("maps256/Sft2", "r");
+	infile3 = fopen("maps256/Sft3", "r");
+	infile4 = fopen("maps256/Sft4", "r");
+	infile5 = fopen("maps256/Sft5", "r");
 
 	while ((fgets(line,sizeof line, infile) != NULL) & (fgets(line2,sizeof line2, infile2) != NULL) & (fgets(line3,sizeof line3, infile3) != NULL )& (fgets(line4,sizeof line4, infile4) != NULL) & (fgets(line5,sizeof line5, infile5) != NULL)) {
 		Sft[i]=(atof(line));
-		/*Sft[i+size] = atof(line2);
+		Sft[i+size] = atof(line2);
 		Sft[i+2*size] = atof(line3);
 		Sft[i+3*size] = atof(line4);
-		Sft[i+4*size] = atof(line5);*/
-		Sft[i+size] = atof(line);
+		Sft[i+4*size] = atof(line5);
+		/*Sft[i+size] = atof(line);
 		Sft[i+2*size] = atof(line);
 		Sft[i+3*size] = atof(line);
-		Sft[i+4*size] = atof(line);
+		Sft[i+4*size] = atof(line);*/
 		i++;
 	}
 	fclose(infile);
@@ -343,22 +355,23 @@ int main(void)
 	fclose(infile5);
 
 	i=0;
-	infile = fopen("5maps/data1", "r");
-	infile2 = fopen("5maps/data2", "r");
-	infile3 = fopen("5maps/data3", "r");
-	infile4 = fopen("5maps/data4", "r");
-	infile5 = fopen("5maps/data5", "r");
+	//infile = fopen("maps256/paper_data_diagonal_128.txt", "r");
+	infile = fopen("maps256/data1", "r");
+	infile2 = fopen("maps256/data2", "r");
+	infile3 = fopen("maps256/data3", "r");
+	infile4 = fopen("maps256/data4", "r");
+	infile5 = fopen("maps256/data5", "r");
 
 	while ((fgets(line,sizeof line, infile) != NULL) & (fgets(line2,sizeof line2, infile2) != NULL) & (fgets(line3,sizeof line3, infile3) != NULL )& (fgets(line4,sizeof line4, infile4) != NULL) & (fgets(line5,sizeof line5, infile5) != NULL)) {
 		data[i]= (atof(line));
-		/*data[i+size]= (atof(line2));
+		data[i+size]= (atof(line2));
 		data[i+size*2]= (atof(line3));
 		data[i+size*3]= (atof(line4));
-		data[i+size*4]= (atof(line5));*/
-		data[i+size]= (atof(line));
+		data[i+size*4]= (atof(line5));
+		/*data[i+size]= (atof(line));
 		data[i+size*2]= (atof(line));
 		data[i+size*3]= (atof(line));
-		data[i+size*4]= (atof(line));
+		data[i+size*4]= (atof(line));*/
 		
 		i++;
 	}
@@ -370,23 +383,24 @@ int main(void)
 
 	// Read in N and calculate the minimum of N ( = tau1):
 	i = 0;
-	infile = fopen("5maps/N1", "r");
-	infile2 = fopen("5maps/N2", "r");
-	infile3 = fopen("5maps/N3", "r");
-	infile4 = fopen("5maps/N4", "r");
-	infile5 = fopen("5maps/N5", "r");
+	//infile = fopen("maps256/paper_N_diagonal_128.txt", "r");
+	infile = fopen("maps256/N1", "r");
+	infile2 = fopen("maps256/N2", "r");
+	infile3 = fopen("maps256/N3", "r");
+	infile4 = fopen("maps256/N4", "r");
+	infile5 = fopen("maps256/N5", "r");
 
 	while ((fgets(line,sizeof line, infile) != NULL )& (fgets(line2,sizeof line2, infile2) != NULL) & (fgets(line3,sizeof line3, infile3) != NULL )& (fgets(line4,sizeof line4, infile4) != NULL) & ( fgets(line5,sizeof line5, infile5) != NULL)) {
 
-		Nbar[i]= (atof(line));/*
+		Nbar[i]= (atof(line));
 		Nbar[i+size]= (atof(line2));
 		Nbar[i+size*2]= (atof(line3));
 		Nbar[i+size*3]= (atof(line4));
-		Nbar[i+size*4]= (atof(line5));*/
-		Nbar[i+size]= (atof(line));
+		Nbar[i+size*4]= (atof(line5));
+		/*Nbar[i+size]= (atof(line));
 		Nbar[i+size*2]= (atof(line));
 		Nbar[i+size*3]= (atof(line));
-		Nbar[i+size*4]= (atof(line));
+		Nbar[i+size*4]= (atof(line));*/
 
 		mapcount=0;
 		for(mapcount=0 ; mapcount < map_number; mapcount++) {
@@ -414,7 +428,7 @@ int main(void)
 
 	// Create Nbar = N - min(N) , where min(N) = tau1:
 
-	int j =0;
+	j =0;
 	for ( j = 0; j < size; j++){
 		mapcount= 0;
 		for(mapcount=0; mapcount < map_number; mapcount++){
@@ -470,7 +484,7 @@ int main(void)
 
 	printf("Running on DFE.\n");
 	current_iteration = iterationmin;
-	for( current_iteration = iterationmin; current_iteration < iterationmax+1; current_iteration = 2*current_iteration){
+	for( current_iteration = iterationmin; current_iteration < iterationmax+1; current_iteration = 10*current_iteration){
 		j = 0;
 		for( j = 0; j < repeat_number; j++) {
 			sampler_DFE( current_iteration,
@@ -531,10 +545,10 @@ int main(void)
 	// -------------------------------------------------------------------------//
 	// ----------------------CPU sampler filter----------------------------------//
 	// -------------------------------------------------------------------------//
-
+	
 	printf("Running on CPU... \n");
 	current_iteration = iterationmin;
-	for( current_iteration = iterationmin; current_iteration < iterationmax+1; current_iteration = 2*current_iteration){
+	for( current_iteration = iterationmin; current_iteration < iterationmax+1; current_iteration = 10*current_iteration){
 		j = 0;
 		for( j = 0; j < repeat_number; j++) {
 			sampler_cpu( current_iteration,
@@ -626,6 +640,7 @@ int main(void)
 	printf("%d data points found at > 10%% CPU and DFE mismatch \n", checkerror4);
 	printf("Done.\n");
 	
+	/*
 	FILE *out1=fopen("outputs.csv", "w");
 	i=0;
 	for(i=50; i < map_number*size*iterationmax; i=i+map_number*size) {
@@ -637,7 +652,7 @@ int main(void)
 			creal(sandtCPU[i+4*size]) );
 		//printf("%d, %e, %e, %e\n", i/(map_number*size), creal(sandtCPU[i]), creal(sandtCPU[i+size]), creal(sandtCPU[i+2*size]) );
 	}
-	fclose(out1);
+	fclose(out1);*/
 
 	return 0;
 }

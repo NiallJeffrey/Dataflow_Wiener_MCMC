@@ -5,12 +5,14 @@ import com.maxeler.maxcompiler.v2.managers.BuildConfig.Effort;
 import com.maxeler.maxcompiler.v2.managers.BuildConfig.OptimizationTechnique;
 import com.maxeler.maxcompiler.v2.managers.custom.CustomManager;
 import com.maxeler.maxcompiler.v2.managers.custom.blocks.KernelBlock;
-import com.maxeler.maxcompiler.v2.managers.custom.stdlib.DebugLevel;
+// import com.maxeler.maxcompiler.v2.managers.custom.stdlib.DebugLevel; //currently unused
 
 public class samplerManager extends CustomManager {
 
 	public samplerManager(samplerEngineParameters engineParameters) {
 		super(engineParameters);
+
+		config.setDefaultStreamClockFrequency(engineParameters.getstreamFrequency());
 	}
 
 	public static void main(String[] args) {
@@ -29,9 +31,7 @@ public class samplerManager extends CustomManager {
 
 		manager.addMaxFileConstant("N", engineParameters.getN());
 		manager.addMaxFileConstant("map_number", engineParameters.getmap_number());
-
-		//kernel.setKernelClockFrequency(200);
-
+		manager.addMaxFileConstant("streamFrequency", engineParameters.getstreamFrequency());
 
 		samplerManager.configBuild(manager, engineParameters);
 
@@ -41,20 +41,15 @@ public class samplerManager extends CustomManager {
 
 	private static void configBuild(samplerManager manager, samplerEngineParameters engineParameters) {
 
-		//manager.setEnableStreamStatusBlocks(true);
-		//BuildConfig buildConfig = getBuildConfig();
-		//buildConfig.setMPPRCostTableSearchRange(engineParameters.getMPPRStartCT(), engineParameters.getMPPREndCT());
-		//buildConfig.setMPPRParallelism(engineParameters.getMPPRThreads());
-		//buildConfig.setMPPRRetryNearMissesThreshold(engineParameters.getMPPRRetryThreshold());
 
-
-		// DebugLevel debugLevel = new DebugLevel(); //Q have just commented this out
+		// DebugLevel debugLevel = new DebugLevel(); // have just commented this out
 		// debugLevel.setHasStreamStatus(true);
 		// manager.debug.setDebugLevel(debugLevel);
 		BuildConfig buildConfig = manager.getBuildConfig();
 		buildConfig.setMPPRCostTableSearchRange(engineParameters.getMPPRStartCT(), 4);
-		buildConfig.setMPPRParallelism(engineParameters.getMPPRThreads());
-		buildConfig.setMPPRRetryNearMissesThreshold(engineParameters.getMPPRRetryThreshold());
+		//buildConfig.setMPPRParallelism(engineParameters.getMPPRThreads());
+		buildConfig.setMPPRParallelism(4); //must be no greater than CostTableSearchRange
+		buildConfig.setMPPRRetryNearMissesThreshold(1000); //engineParameters.getMPPRRetryThreshold());
 		buildConfig.setBuildEffort(Effort.VERY_HIGH); // VERY_HIGH takes longer
 		buildConfig.setOptimizationGoal(OptimizationTechnique.AREA);
 	}
