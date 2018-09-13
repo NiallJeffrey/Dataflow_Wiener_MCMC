@@ -25,3 +25,9 @@ export DISPLAY=":99"
 make RUNRULE=DFE build
 popd
 ```
+
+## How to run (general)
+
+```bash
+make RUNRULE=DFE run
+```
