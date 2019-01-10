@@ -1,4 +1,5 @@
 # Dataflow_Wiener_MCMC
+## Publication: https://arxiv.org/abs/1810.02821 (10.1016/j.ascom.2018.10.001)
 
 We use Maxeler Dataflow Engines (DFE) to construct an efficient Wiener filter of noisy and incomplete image data, and to quickly draw probabilistic samples of the compatible true underlying images from the Wiener posterior. Dataflow computing is a powerful approach using reconfigurable hardware, which can be deeply pipelined and is intrinsically parallel.
 
